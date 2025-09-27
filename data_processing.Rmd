@@ -5,6 +5,8 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
+## Setup and loading data
+
 ```{r libraries, include=FALSE}
 library(plyr)
 library(dplyr)
@@ -13,7 +15,7 @@ library(readr)
 library(data.table)
 ```
 
-```{r dataframe, include=FALSE}
+```{r dataframe}
 # Create empty list for saving each subject
 list = c()
 # Read in data for each subject
@@ -30,12 +32,14 @@ for (n in 10:15){
 }
 # Bind all dataframes together
 data <- rbindlist(list)
+# Remove known outlier (experiment was interrupted)
+data <- subset(data, retrieval_t < 50000) 
 # Clear workspace of leftovers
 rm(list = setdiff(ls(), "data"))
 ```
 
 
-```{r cleanup, include=FALSE}
+```{r cleanup}
 # Remove the column containing only the "OK" response starting the experiment
 data <- select(data, -form_response)
 
@@ -53,18 +57,22 @@ data$accuracy <- ifelse(is.na(data$time_correct_answer), "incorrect", "correct")
 rm(list = setdiff(ls(), "data"))
 ```
 
-## Setup complete, data loaded and cleaned
+## Descriptive Statistics
 
 ```{r}
-print("Mean age:")
+# Mean age:
 mean(data$age)
-print("Ages of participants:")
+# Ages of participants:
 table(data$age) / 120
-print("Gender of participants:")
+# Gender of participants:
 table(data$gender) / 120
-# mean(data$time_correct_answer, na.rm = T)     # idk how to interpret the time variables very well lol
 
-print("Distribution of responses per block:")
+# Distribution of responses per block:
 table(data$subject, data$block, data$accuracy)
+
+# Some average retrieval time values
+data %>%
+    group_by(subject, accuracy, block) %>%
+    summarize(mean_retrieval_time = mean(retrieval_t))
 ```
 
