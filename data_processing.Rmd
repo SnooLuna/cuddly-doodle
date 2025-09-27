@@ -10,11 +10,10 @@ library(plyr)
 library(dplyr)
 library(plotfunctions)
 library(readr)
-library(readbulk)
 library(data.table)
 ```
 
-```{r loading data}
+```{r dataframe, include=FALSE}
 # Create empty list for saving each subject
 list = c()
 # Read in data for each subject
@@ -24,7 +23,7 @@ for (n in 10:15){
     age <- subject$response[1]
     gender <- subject$response[2]
     subject$subject <- paste0("s", n)
-    subject$age <- age
+    subject$age <- as.integer(age)
     subject$gender <- gender
     subject <- subject[-c(1:2), ]
     list[[length(list) + 1]] <- subject
@@ -36,19 +35,36 @@ rm(list = setdiff(ls(), "data"))
 ```
 
 
-```{r cleanup of data}
+```{r cleanup, include=FALSE}
 # Remove the column containing only the "OK" response starting the experiment
 data <- select(data, -form_response)
 
 # These columns contain duplicate data values that exist because they are not used
 time_cols <- c("time_block_loop", "time_block_sequence", "time_correct_answer", "time_cue", "time_fixation_cross", "time_fixation_dot", "time_incorrect_answer", "time_keyboard", "time_press_spacebar", "time_study_screen", "time_test_screen")
 
-# We set all duplicate values in those columns to NA value
+# We set all duplicate values in those columns to NA value, and adjust the values according to timestamps
 for (col in time_cols){
     data[[col]][duplicated(data[[col]])] <- NA
 }
+
+data$accuracy <- ifelse(is.na(data$time_correct_answer), "incorrect", "correct")
+
 # Clear workspace of leftovers
 rm(list = setdiff(ls(), "data"))
 ```
 
 ## Setup complete, data loaded and cleaned
+
+```{r}
+print("Mean age:")
+mean(data$age)
+print("Ages of participants:")
+table(data$age) / 120
+print("Gender of participants:")
+table(data$gender) / 120
+# mean(data$time_correct_answer, na.rm = T)     # idk how to interpret the time variables very well lol
+
+print("Distribution of responses per block:")
+table(data$subject, data$block, data$accuracy)
+```
+
