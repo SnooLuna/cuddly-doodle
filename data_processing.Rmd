@@ -1,0 +1,54 @@
+---
+title: "DataProcessing"
+author: "Group 4"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r libraries, include=FALSE}
+library(plyr)
+library(dplyr)
+library(plotfunctions)
+library(readr)
+library(readbulk)
+library(data.table)
+```
+
+```{r loading data}
+# Create empty list for saving each subject
+list = c()
+# Read in data for each subject
+for (n in 10:15){
+    subject <- read.csv(paste0("data//subject-", n, ".csv"))
+    # Save subject information, remove empty rows
+    age <- subject$response[1]
+    gender <- subject$response[2]
+    subject$subject <- paste0("s", n)
+    subject$age <- age
+    subject$gender <- gender
+    subject <- subject[-c(1:2), ]
+    list[[length(list) + 1]] <- subject
+}
+# Bind all dataframes together
+data <- rbindlist(list)
+# Clear workspace of leftovers
+rm(list = setdiff(ls(), "data"))
+```
+
+
+```{r cleanup of data}
+# Remove the column containing only the "OK" response starting the experiment
+data <- select(data, -form_response)
+
+# These columns contain duplicate data values that exist because they are not used
+time_cols <- c("time_block_loop", "time_block_sequence", "time_correct_answer", "time_cue", "time_fixation_cross", "time_fixation_dot", "time_incorrect_answer", "time_keyboard", "time_press_spacebar", "time_study_screen", "time_test_screen")
+
+# We set all duplicate values in those columns to NA value
+for (col in time_cols){
+    data[[col]][duplicated(data[[col]])] <- NA
+}
+# Clear workspace of leftovers
+rm(list = setdiff(ls(), "data"))
+```
+
+## Setup complete, data loaded and cleaned
