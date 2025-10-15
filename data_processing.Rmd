@@ -14,6 +14,8 @@ library(plotfunctions)
 library(readr)
 library(ggplot2)
 library(showtext)
+library(mgcv)
+library(itsadug)
 library(data.table)
 ```
 
@@ -35,8 +37,10 @@ for (n in 10:15){
 }
 # Bind all dataframes together
 data <- rbindlist(list)
+# Add repetitions
+data$rep <- c(rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10))
 # Remove known outlier (experiment was interrupted)
-data <- subset(data, retrieval_t < 50000) 
+data <- subset(data, retrieval_t < 50000 & retrieval_t > 10)
 # Clear workspace of leftovers
 rm(list = setdiff(ls(), "data"))
 ```
@@ -120,7 +124,7 @@ ggsave('graphs/demographicsubjects.png', d, width = 8, height = 5, dpi = 100, bg
 
 
 ```{r}
-p <- ggplot(test_data, aes(x=as.factor(block), y=accuracy, fill=condition)) + 
+ggplot(test_data, aes(x=as.factor(block), y=accuracy, fill=condition)) + 
   geom_bar(position=position_dodge(), stat="summary", fun="mean",
            colour='white') + theme_minimal(base_family = "DeliciousUni") + scale_fill_manual(values = c("#79d8d4", "#fdbecc")) +
   geom_errorbar(stat = "summary", width=.2, position = position_dodge(.9), colour = "gray40") + labs(title = "Accuracy per Condition per Block", fill = "Condition") + ylab("Accuracy") + xlab("Block") + ylim(0,1) + facet_wrap(vars(subject)) + theme(plot.title = element_text(hjust = 0.5),
@@ -146,6 +150,32 @@ p <- ggplot(test_data, aes(x=as.factor(block), y=accuracy, fill=condition)) +
 ggsave('graphs/accuracysubjects.png', p, width = 8, height = 5, dpi = 100, bg='transparent')
 ```
 
+```{r}
+ggplot(test_data, aes(x=as.factor(block), y=retrieval_t, fill=condition)) + 
+  geom_bar(position=position_dodge(), stat="summary", fun="mean",
+           colour='white') + theme_minimal(base_family = "DeliciousUni") + scale_fill_manual(values = c("#79d8d4", "#fdbecc")) +
+  geom_errorbar(stat = "summary", width=.2, position = position_dodge(.9), colour = "gray40") + labs(title = "Accuracy per Condition per Block", fill = "Condition") + ylab("Accuracy") + xlab("Block") + facet_wrap(vars(subject)) + theme(plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray65"
+    ),
+    panel.grid.major = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray35"
+    ),
+    panel.grid.major.x = element_blank(),
+    axis.ticks.x = element_line(
+      linetype = "solid",
+      linewidth = 0.25,
+      color = "gray35"
+    ),
+    axis.ticks.length.x = unit(4, units = "pt")
+  )
+
+ggsave('graphs/accuracysubjects.png', p, width = 8, height = 5, dpi = 100, bg='transparent')
+```
 
 ```{r}
 p <- ggplot(test_data, aes(x=as.factor(block), y=accuracy, color = condition2, fill=condition)) + 
@@ -175,7 +205,7 @@ ggsave('graphs/accuracy.png', p, width = 8, height = 5, dpi = 100, bg='transpare
 
 
 ```{r}
-rt <- ggplot(test_data, aes(x=as.factor(block), y=retrieval_t, color = condition2, fill=condition)) + 
+ggplot(test_data, aes(x=as.factor(block), y=retrieval_t, color = condition2, fill=condition)) + 
   geom_bar(position=position_dodge(), stat="summary", fun="mean", linewidth = 0) + theme_minimal(base_family = "DeliciousUni") + scale_fill_manual(values = c("#79d8d4", "#fdbecc")) +
   geom_errorbar(stat = "summary", width=.2, position = position_dodge(.9)) + scale_color_manual(values = c("gray40", "gray40"), guide = 'none') + labs(title = "Retrieval Time during Test Trials per Condition per Block", fill = "Condition") + ylab("Retrieval Time") + xlab("Block") + theme(plot.title = element_text(hjust = 0.5),
     panel.grid.minor = element_line(
@@ -198,4 +228,59 @@ rt <- ggplot(test_data, aes(x=as.factor(block), y=retrieval_t, color = condition
   )
 
 ggsave('graphs/rt.png', rt, width = 8, height = 5, dpi = 100, bg='transparent')
+```
+
+```{r}
+ggplot(test_data, aes(x=diff, y=alpha, fill=condition)) + 
+  geom_bar(position=position_dodge(), stat="summary", fun="mean", linewidth = 0) + theme_minimal(base_family = "DeliciousUni") + scale_fill_manual(values = c("#79d8d4", "#fdbecc")) +
+  geom_errorbar(stat = "summary", width=.2, position = position_dodge(.9)) + scale_color_manual(values = c("gray40", "gray40"), guide = 'none') + labs(title = "Retrieval Time during Test Trials per Condition per Block", fill = "Condition") + ylab("Retrieval Time") + xlab("Block") + theme(plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray65"
+    ),
+    panel.grid.major = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray35"
+    ),
+    panel.grid.major.x = element_blank(),
+    axis.ticks.x = element_line(
+      linetype = "solid",
+      linewidth = 0.25,
+      color = "gray35"
+    ),
+    axis.ticks.length.x = unit(4, units = "pt")
+  )
+
+ggsave('graphs/rt.png', rt, width = 8, height = 5, dpi = 100, bg='transparent')
+```
+
+```{r}
+test_data$subject <- as.factor(test_data$subject)
+test_data$swahili <- as.factor(test_data$swahili)
+test_data$diff <- as.factor(test_data$diff)
+test_data$condition <- as.factor(test_data$condition)
+test_data$LRT <- log10(test_data$retrieval_t)
+```
+
+```{r}
+m5 <- gam(LRT ~ trial + (condition + rep + block)^2 + condition:trial:rep
+          + s(alpha, bs='re') + s(swahili, bs='re') + s(subject, bs='re') + s(subject, accuracy, bs='re'), data=test_data)
+
+summary(m5)
+```
+
+```{r}
+m1 <- gam(accuracy ~ trial + (condition + rep + block)^4
+          + s(swahili, bs='re') + s(subject, bs='re'), data=test_data)
+
+summary(m1)
+```
+
+```{r}
+qqnorm(log10(subset(data, retrieval_t > 10)$retrieval_t))
+qqline(log10(subset(data, retrieval_t > 10)$retrieval_t))
+check_normaldist(log10(subset(data, retrieval_t > 10)$retrieval_t))
+check_normaldist(log(subset(data, retrieval_t > 10)$retrieval_t))
 ```
