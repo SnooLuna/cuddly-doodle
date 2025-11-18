@@ -1,0 +1,356 @@
+---
+title: "Aled"
+author: "Vasilija Dolamic"
+date: "2025-11-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r libraries, include=FALSE}
+library(plyr)
+library(dplyr)
+library(plotfunctions)
+library(readr)
+library(ggplot2)
+library(showtext)
+library(mgcv)
+library(itsadug)
+library(data.table)
+```
+
+```{r dataframe}
+# Create empty list for saving each subject
+list = c()
+# Read in data for each subject
+for (n in 10:15){
+    subject <- read.csv(paste0("subject-", n, ".csv"))
+    # Save subject information, remove empty rows
+    age <- subject$response[1]
+    gender <- subject$response[2]
+    subject$subject <- paste0("s", n)
+    subject$age <- as.integer(age)
+    subject$gender <- gender
+    subject <- subject[-c(1:2), ]
+    list[[length(list) + 1]] <- subject
+    
+}
+# Bind all dataframes together
+data <- rbindlist(list)
+# Add repetitions
+data$rep <- c(rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10), rep(0:5, each=10))
+# Remove known outlier (experiment was interrupted)
+data <- subset(data, retrieval_t < 50000 & retrieval_t > 10)
+# Clear workspace of leftovers
+rm(list = setdiff(ls(), "data"))
+```
+
+
+```{r cleanup}
+# Remove the column containing only the "OK" response starting the experiment
+data <- select(data, -form_response)
+
+# These columns contain duplicate data values that exist because they are not used
+time_cols <- c("time_block_loop", "time_block_sequence", "time_correct_answer", "time_cue", "time_fixation_cross", "time_fixation_dot", "time_incorrect_answer", "time_keyboard", "time_press_spacebar", "time_study_screen", "time_test_screen")
+
+# We set all duplicate values in those columns to NA value, and adjust the values according to timestamps
+for (col in time_cols){
+    data[[col]][duplicated(data[[col]])] <- NA
+}
+
+data$accuracy <- ifelse(is.na(data$time_correct_answer), 0, 1)
+
+data$condition <- ifelse((data$block == 1 & (data$subject == "s12" | data$subject == "s13" | data$subject == "s14")) | (data$block == 2 & (data$subject == "s10" | data$subject == "s11" | data$subject == "s15")), "With", "Without")
+
+data$condition2 <- ifelse(data$subject == "s12" | data$subject == "s13" | data$subject == "s14", "WithFirst", "WithoutFirst")
+
+# Clear workspace of leftovers
+rm(list = setdiff(ls(), "data"))
+test_data <- subset(data, is.na(time_study_screen))
+```
+
+## Descriptive Statistics
+
+```{r}
+# Mean age:
+mean(data$age)
+# Ages of participants:
+table(data$age) /120
+# Gender of participants:
+table(data$gender) 
+
+age <- c(22,22,23,23,29,58)
+mean(age)
+median(age)
+sd(age)
+# Distribution of responses per block:
+table(data$subject, data$block, data$accuracy)
+
+# Some average retrieval time values
+data %>%
+    group_by(subject, accuracy, block) %>%
+    summarize(mean_retrieval_time = mean(retrieval_t))
+```
+
+```{r}
+font_add_google("Delius Unicase", family = "DeliciousUni")
+showtext_auto()
+
+
+
+```
+
+```{r}
+d <- ggplot(data, aes(x=subject, y=age, fill=gender)) + 
+  geom_bar(position=position_dodge(), stat="summary", fun="mean",
+           colour='white') + theme_minimal(base_family = "DeliciousUni") + scale_fill_manual(values = c("#79d8d4", "#eae38e")) + labs(title = "Demographic data of our participants", fill = "Gender") + ylab("Age") + xlab("Subject") + theme(plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray65"
+    ),
+    panel.grid.major = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray35"
+    ),
+    panel.grid.major.x = element_blank(),
+    axis.ticks.x = element_line(
+      linetype = "solid",
+      linewidth = 0.25,
+      color = "gray35"
+    ),
+    axis.ticks.length.x = unit(4, units = "pt")
+  )
+d
+#ggsave('graphs/demographicsubjects.png', d, width = 8, height = 5, dpi = 100, bg='transparent')
+```
+
+
+```{r}
+ggplot(test_data, aes(x=as.factor(block), y=accuracy, fill=condition)) + 
+  geom_bar(position=position_dodge(), stat="summary", fun="mean",
+           colour='white') + theme_minimal(base_family = "DeliciousUni") + scale_fill_manual(values = c("#79d8d4", "#fdbecc")) +
+  geom_errorbar(stat = "summary", width=.2, position = position_dodge(.9), colour = "gray40") + labs(title = "Accuracy per Condition per Block", fill = "Condition") + ylab("Accuracy") + xlab("Block") + ylim(0,1) + facet_wrap(vars(subject)) + theme(plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray65"
+    ),
+    panel.grid.major = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray35"
+    ),
+    panel.grid.major.x = element_blank(),
+    axis.ticks.x = element_line(
+      linetype = "solid",
+      linewidth = 0.25,
+      color = "gray35"
+    ),
+    axis.ticks.length.x = unit(4, units = "pt")
+  )
+
+#ggsave('graphs/accuracysubjects.png', p, width = 8, height = 5, dpi = 100, bg='transparent')
+```
+
+```{r}
+ggplot(test_data, aes(x=as.factor(block), y=retrieval_t, fill=condition)) + 
+  geom_bar(position=position_dodge(), stat="summary", fun="mean",
+           colour='white') + theme_minimal(base_family = "DeliciousUni") + scale_fill_manual(values = c("#79d8d4", "#fdbecc")) +
+  geom_errorbar(stat = "summary", width=.2, position = position_dodge(.9), colour = "gray40") + labs(title = "Accuracy per Condition per Block", fill = "Condition") + ylab("Accuracy") + xlab("Block") + facet_wrap(vars(subject)) + theme(plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray65"
+    ),
+    panel.grid.major = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray35"
+    ),
+    panel.grid.major.x = element_blank(),
+    axis.ticks.x = element_line(
+      linetype = "solid",
+      linewidth = 0.25,
+      color = "gray35"
+    ),
+    axis.ticks.length.x = unit(4, units = "pt")
+  )
+
+#ggsave('graphs/accuracysubjects.png', p, width = 8, height = 5, dpi = 100, bg='transparent')
+```
+
+```{r}
+p <- ggplot(test_data, aes(x=as.factor(block), y=accuracy, color = condition2, fill=condition)) + 
+  geom_bar(position=position_dodge(), stat="summary", fun="mean", linewidth = 0) + theme_minimal(base_family = "DeliciousUni") + scale_fill_manual(values = c("#79d8d4", "#fdbecc")) +
+  geom_errorbar(stat = "summary", width=.2, position = position_dodge(.9), linewidth = 0.5) +  scale_color_manual(values = c("gray40", "gray40"), guide = 'none') + labs(title = "Accuracy per Condition per Block", fill = "Condition") + ylab("Accuracy") + xlab("Block") + ylim(0,1) + theme(plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray65"
+    ),
+    panel.grid.major = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray35"
+    ),
+    panel.grid.major.x = element_blank(),
+    axis.ticks.x = element_line(
+      linetype = "solid",
+      linewidth = 0.25,
+      color = "gray35"
+    ),
+    axis.ticks.length.x = unit(4, units = "pt")
+  )
+p
+accuracy.mean <- aggregate(accuracy ~ condition ,data = test_data, mean)
+se <- function(x){sd(x)/sqrt(length(x))}
+accuracy.SE <- aggregate(accuracy ~ condition ,data = test_data, se)
+accuracy.SE
+dfk <- accuracy.mean
+
+dfk['SE'] <- accuracy.SE$accuracy
+dfk$accuracy
+a <- ggplot(dfk, aes(x=condition, y=accuracy, fill=condition)) + 
+  geom_bar( stat="identity", linewidth = 0) + theme_minimal(base_family = "DeliciousUni") + scale_fill_manual(values = c("#79d8d4", "#fdbecc")) +
+  geom_errorbar(aes(ymin=accuracy-SE, ymax=accuracy+SE), width=.2,  position = position_dodge(.9)) +  scale_color_manual(values = c("gray40", "gray40"), guide = 'none') + labs(title = "Accuracy per Condition", fill = "Condition") + ylab("Accuracy") + xlab("Block") + ylim(0,1) + theme(plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray65"
+    ),
+    panel.grid.major = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray35"
+    ),
+    panel.grid.major.x = element_blank(),
+    axis.ticks.x = element_line(
+      linetype = "solid",
+      linewidth = 0.25,
+      color = "gray35"
+    ),
+    axis.ticks.length.x = unit(4, units = "pt")
+  )
+a
+#ggsave('graphs/accuracy.png', p, width = 8, height = 5, dpi = 100, bg='transparent')
+```
+```{r}
+haha <- ddply(test_data, c("condition", "block"), summarise,
+              M = mean(accuracy),
+              S = se(accuracy))
+hihi <- ddply(test_data, c("condition", "block"), summarise,
+              M = mean(retrieval_t),
+              S = se(retrieval_t))
+hihi
+```
+
+
+
+```{r}
+ggplot(test_data, aes(x=as.factor(block), y=retrieval_t, color = condition2, fill=condition)) + 
+  geom_bar(position=position_dodge(), stat="summary", fun="mean", linewidth = 0) + theme_minimal(base_family = "DeliciousUni") + scale_fill_manual(values = c("#79d8d4", "#fdbecc")) +
+  geom_errorbar(stat = "summary", width=.2, position = position_dodge(.9)) + scale_color_manual(values = c("gray40", "gray40"), guide = 'none') + labs(title = "Retrieval Time during Test Trials per Condition per Block", fill = "Condition") + ylab("Retrieval Time") + xlab("Block") + theme(plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray65"
+    ),
+    panel.grid.major = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray35"
+    ),
+    panel.grid.major.x = element_blank(),
+    axis.ticks.x = element_line(
+      linetype = "solid",
+      linewidth = 0.25,
+      color = "gray35"
+    ),
+    axis.ticks.length.x = unit(4, units = "pt")
+  )
+
+#ggsave('graphs/rt.png', rt, width = 8, height = 5, dpi = 100, bg='transparent')
+```
+
+```{r}
+ggplot(test_data, aes(x=diff, y=alpha, fill=condition)) + 
+  geom_bar(position=position_dodge(), stat="summary", fun="mean", linewidth = 0) + theme_minimal(base_family = "DeliciousUni") + scale_fill_manual(values = c("#79d8d4", "#fdbecc")) +
+  geom_errorbar(stat = "summary", width=.2, position = position_dodge(.9)) + scale_color_manual(values = c("gray40", "gray40"), guide = 'none') + labs(title = "Retrieval Time during Test Trials per Condition per Block", fill = "Condition") + ylab("Retrieval Time") + xlab("Block") + theme(plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray65"
+    ),
+    panel.grid.major = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray35"
+    ),
+    panel.grid.major.x = element_blank(),
+    axis.ticks.x = element_line(
+      linetype = "solid",
+      linewidth = 0.25,
+      color = "gray35"
+    ),
+    axis.ticks.length.x = unit(4, units = "pt")
+  )
+
+ggsave('graphs/rt.png', rt, width = 8, height = 5, dpi = 100, bg='transparent')
+```
+
+```{r}
+test_data$subject <- as.factor(test_data$subject)
+test_data$swahili <- as.factor(test_data$swahili)
+test_data$diff <- as.factor(test_data$diff)
+test_data$condition <- as.factor(test_data$condition)
+test_data$LRT <- log10(test_data$retrieval_t)
+```
+
+```{r}
+m5 <- bam(LRT ~ trial +(condition + rep + block+age+accuracy)^2 + condition:trial:rep -condition:age - rep:age - rep:accuracy -block:age -block:accuracy -age:accuracy
+         + s(swahili, bs='re') + s(subject, bs='re'), data=test_data, method ="ML")
+m6 <- bam(LRT ~ trial +(condition + rep + block+age+accuracy)^2 -condition:age - rep:age - rep:accuracy - block:age -block:accuracy - age:accuracy + condition:trial:rep
+         + s(swahili, bs='re') + s(subject, bs='re'), data=test_data, method ="ML")
+summary(m5)
+
+```
+
+```{r}
+m1 <- gam(accuracy ~ (trial + condition  + block + age) +trial:age
+          + s(swahili, bs='re') + s(subject, bs='re'), data=test_data, method = "ML", family = binomial)
+m2 <- gam(accuracy ~ (trial + condition  + block + age) + trial:age
+          + s(swahili, bs='re') + s(subject, bs='re'), data=test_data, method = "ML", family = binomial)
+summary(m1)
+#trial:age
+compareML(m1,m2)
+```
+
+```{r}
+qqnorm(log10(subset(data, retrieval_t > 10)$retrieval_t))
+qqline(log10(subset(data, retrieval_t > 10)$retrieval_t))
+check_normaldist(log10(subset(data, retrieval_t > 10)$retrieval_t))
+check_normaldist(log(subset(data, retrieval_t > 10)$retrieval_t))
+```
