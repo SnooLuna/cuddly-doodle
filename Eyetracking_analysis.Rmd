@@ -1,0 +1,173 @@
+---
+title: "Eyetrackinganalysis"
+author: "Vasilija Dolamic"
+date: "2025-11-21"
+output: html_document
+---
+
+```{r}
+install.packages("https://cran.r-project.org/src/contrib/Archive/PupilPre/PupilPre_0.6.2.tar.gz", repos = NULL) #pupilpre no longer active on CRAN, need to install from archive
+install.packages("eyelinker")
+install.packages("dplyr")
+install.packages("plyr")
+install.packages("VWPre")
+install.packages("shiny")
+install.packages('robustbase')
+install.packages("signal")
+```
+
+```{r}
+require(PupilPre)
+require(eyelinker)
+require(plyr)
+require(dplyr)
+```
+
+```{r}
+source("eyetracking_in_R/src/asc_to_pupilpre.R")
+```
+
+```{r}
+path_to_file <- "sub_1.asc"
+raw_dat <- read.asc(path_to_file)
+
+```
+
+```{r}
+head(raw_dat$msg, 100)
+```
+
+```{r}
+raw_dat$fix
+```
+
+```{r}
+str(raw_dat)
+tail(raw_dat$msg$text,20)
+```
+```{r}
+label <- "sub1" # Some subject identifier
+recorded_eye <- "Left"
+trial_start_msg <- "start trial" # Trial begin pattern
+trial_end_msg <- "end trial" # Trial end pattern
+id_pattern <- "trial " # Part of trial pattern used for trial index
+
+#trial index won't work wtfff
+```
+
+```{r}
+ppl_pre_dat <- asc_to_pupilpre(path_to_file,
+                               label,
+                               recorded_eye,
+                               trial_start_msg,
+                               id_pattern,
+                               trial_end_msg)
+```
+```{r}
+tail(ppl_pre_dat$pplpreData,100)
+unique(ppl_pre_dat$pplpreData$TRIAL_INDEX)
+#BRUH???
+```
+```{r}
+head(ppl_pre_dat$rawMessages,20)
+```
+```{r}
+head(ppl_pre_dat$rawData)
+```
+
+
+```{r}
+dat <- ppl_pre_dat$pplpreData[ppl_pre_dat$pplpreData$in_trial,]
+```
+
+```{r}
+str(dat)
+```
+```{r}
+options(tibble.width = Inf)
+```
+
+```{r}
+dat_aligned <- align_msg(dat,Msg="start trial")
+str(dat_aligned)
+#not sure might be also start trial but I dont think we logged the moment the stimuli appears hihi
+```
+
+```{r}
+dat_time <- create_time_series(dat_aligned, Adjust = 0)
+```
+
+Check whether the results make sense for our messages:
+```{r}
+check_msg_time(dat_time, Msg = "start trial", ReturnData=T)
+```
+
+```{r}
+check_msg_time(dat_time, Msg = "press spacebar", ReturnData = T)
+```
+
+```{r}
+check_msg_time(dat_time, Msg = "var rv_trial ",ReturnData = T)
+#idk too tired srry
+```
+```{r}
+dat2 <- ppl_select_recorded_eye(data = dat_time, Recording = "LorR", WhenLandR = "Left")
+
+```
+
+```{r}
+with(dat2,plot(Gaze_X,Gaze_Y))
+```
+```{r}
+dat3 <- recode_off_screen(data = dat2, ScreenSize = c(1280, 1024))
+```
+
+```{r}
+blink_summary(dat3, Summary = "Event")
+```
+
+```{r}
+NA_summary(dat3, Summary = "Event", PupilColumn="Pupil")
+```
+
+```{r}
+dat4 <- clean_blink(dat3, BlinkPadding = c(170, 170), Delta = 5,
+                    MaxValueRun = 5, NAsAroundRun = c(2,2),
+                    LogFile = "BlinkCleanupLog.rds")
+```
+
+```{r}
+plot_compare_app(dat4)
+#seems okay? can't really remember what they mean by "weird data points" :,)
+#did not check for the clean_artifact function
+```
+
+```{r}
+dat5 <- interpolate_NAs(dat4, Method = "linear", XandY = T, MinData = 2)
+```
+
+```{r}
+plot_compare_app(dat5)
+#ok that looks weird 
+```
+
+```{r}
+dat6 <- baseline(dat5, BaselineWindow = c(-500, 0), BaselineType = "Subtraction")
+```
+
+```{r}
+ppl_plot_avg(data = dat6, xlim = c(-250, 2000), Column = "Pupil",
+             Condition1 = NULL, Condition2 = NULL, Cond1Labels = NA, 
+             Cond2Labels = NA, ErrorBar = FALSE, ErrorBand=TRUE, PupilPreTheme = TRUE) 
+```
+
+```{r}
+avg <- with(dat6[dat6$Time >= -250 & dat6$Time <= 2000,], aggregate(list(Pupil=Pupil), list(Time=Time),mean))
+plot(avg$Time, avg$Pupil)
+```
+
+```{r}
+head(dat6)
+```
+
+
