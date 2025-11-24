@@ -15,6 +15,7 @@ def feature_generation(data):
     SD_gaze_x = data.groupby("TrialNr")["gazeX"].std()
     SD_gaze_y = data.groupby("TrialNr")["gazeY"].std()
     #to see how much the gaze deviates
+    #we could maybe do gaze average as well?
 
     Fix_disp_proportion = data.groupby("TrialNr")["fixdisp"].apply(lambda x : ((x < 0).sum()) /x.count() )
     #propotion of crossed eyes
@@ -45,4 +46,5 @@ def feature_generation(data):
 
 features_p1, feature_names = feature_generation(data_p1)
 features_p2, _ = feature_generation(data_p2)
+
 
