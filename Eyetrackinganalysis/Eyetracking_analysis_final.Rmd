@@ -6,161 +6,14 @@ output: html_document
 ---
 
 ```{r}
-install.packages("https://cran.r-project.org/src/contrib/Archive/PupilPre/PupilPre_0.6.2.tar.gz", repos = NULL) #pupilpre no longer active on CRAN, need to install from archive
-install.packages("eyelinker")
-install.packages("dplyr")
-install.packages("plyr")
-install.packages("VWPre")
-install.packages("shiny")
-install.packages('robustbase')
-install.packages("signal")
-```
-
-```{r}
-require(PupilPre)
-require(eyelinker)
-require(plyr)
-require(dplyr)
-require(stringr)
-require(ggplot2)
-```
-```{r}
-rm(list=ls())
-```
-
-```{r}
-source("eyetracking_in_R/src/asc_to_pupilpre.R")
-```
-
-```{r}
-path_to_file <- "sub_1.asc"
-raw_dat <- read.asc(path_to_file)
-head(raw_dat)
-
-```
-
-```{r}
-head(raw_dat$msg, 15)
-```
-
-```{r}
-raw_dat$fix
-```
-
-```{r}
-str(raw_dat)
-head(raw_dat$msg$text,20)
-tail(raw_dat$text$text,20)
-```
-```{r}
-label <- "sub1" # Some subject identifier
-recorded_eye <- "Left"
-trial_start_msg <- "start trial [0-9]+" # Trial begin pattern
-id_pattern <- "start trial " # Part of trial pattern used for trial index
-trial_end_msg <- "end trial" # Trial end pattern
-```
-
-```{r}
-ppl_pre_dat <- asc_to_pupilpre(path_to_file2,
-                               label,
-                               recorded_eye,
-                               trial_start_msg,
-                               id_pattern,
-                               trial_end_msg)
-
-```
-
-```{r}
-tail(ppl_pre_dat$pplpreData,100)
-unique(ppl_pre_dat$pplpreData$TRIAL_INDEX)
-#BRUH???
-```
-```{r}
-head(ppl_pre_dat$rawMessages,20)
-```
-```{r}
-head(ppl_pre_dat$rawData)
+dat1 <- readRDS("FinalDat_sub1.rds")
+dat2 <- readRDS("FinalDat_s2.rds")
+dat3 <- readRDS("FinalDat_s3.rds")
 ```
 
 
 ```{r}
-dat <- ppl_pre_dat$pplpreData[ppl_pre_dat$pplpreData$in_trial,]
-```
-
-```{r}
-str(dat)
-```
-```{r}
-options(tibble.width = Inf)
-```
-
-```{r}
-dat_aligned <- align_msg(dat,Msg="start trial")
-str(dat_aligned)
-```
-
-```{r}
-dat_time <- create_time_series(dat_aligned, Adjust = 0)
-```
-
-Check whether the results make sense for our messages:
-```{r}
-check_msg_time(dat_time, Msg = "start trial", ReturnData=T)
-```
-
-```{r}
-check_msg_time(dat_time, Msg = "press spacebar", ReturnData = T)
-```
-
-```{r}
-check_msg_time(dat_time, Msg = "rv_trial ",ReturnData = T)
-```
-```{r}
-dat2 <- ppl_select_recorded_eye(data = dat_time, Recording = "LorR", WhenLandR = "Left")
-
-```
-
-```{r}
-with(dat2,plot(Gaze_X,Gaze_Y))
-```
-```{r}
-dat3 <- recode_off_screen(data = dat2, ScreenSize = c(1280, 1024))
-```
-
-```{r}
-blink_summary(dat3, Summary = "Event")
-```
-
-```{r}
-NA_summary(dat3, Summary = "Event", PupilColumn="Pupil")
-```
-
-```{r}
-
-dat4 <- clean_blink(dat3, BlinkPadding = c(170, 170), Delta = 5,
-                    MaxValueRun = 5, NAsAroundRun = c(2,2),
-                    LogFile = "BlinkCleanupLog.rds")
-```
-
-```{r}
-
-plot_compare_app(dat4)
-```
-
-```{r}
-dat5 <- interpolate_NAs(dat4, Method = "linear", XandY = T, MinData = 2)
-```
-
-```{r}
-plot_compare_app(dat5)
-```
-
-```{r}
-dat6 <- baseline(dat5, BaselineWindow = c(-500, 0), BaselineType = "Subtraction")
-```
-
-```{r}
-ppl_plot_avg(data = dat6, xlim = c(-250, 2000), Column = "Pupil",
+ppl_plot_avg(data = dat3, xlim = c(-250, 2000), Column = "Pupil",
              Condition1 = NULL, Condition2 = NULL, Cond1Labels = NA, 
              Cond2Labels = NA, ErrorBar = FALSE, ErrorBand=TRUE, PupilPreTheme = TRUE) 
 ```
@@ -168,6 +21,63 @@ ppl_plot_avg(data = dat6, xlim = c(-250, 2000), Column = "Pupil",
 ```{r}
 avg <- with(dat6[dat6$Time >= -250 & dat6$Time <= 2000,], aggregate(list(Pupil=Pupil), list(Time=Time),mean))
 plot(avg$Time, avg$Pupil)
+hist(dat_all$Time, breaks=30000)
+```
+
+
+```{r}
+ggplot(dat_all, aes(x=Time, y=Pupil)) + stat_summary(aes(y=Pupil, group=diff, colour=diff), fun.y= mean, geom="line") + theme_minimal() + facet_wrap(vars(Subject)) + xlim(-100, 8000)
+```
+```{r}
+font_add_google("Schoolbell", family = "Schoolbell")
+showtext_auto()
+```
+
+
+```{r}
+p <- ggplot(dat_all, aes(x=Time, y=Pupil)) + stat_summary(aes(y=Pupil, group=diff, colour=diff), fun.y= mean, geom="line", linewidth=2) + theme_minimal(base_family = "Schoolbell") + xlim(-100, 8000) + scale_colour_manual(values = c("deeppink", "green")) + labs(title = "Pupil dilation over time per difficulty", colour = "Difficulty") +
+  theme(
+    text=element_text(size=20),
+    panel.background = element_rect(fill='transparent'), #transparent panel bg
+    plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+    panel.grid.minor = element_blank(), #remove minor gridlines
+    legend.background = element_rect(fill='transparent'), #transparent legend bg
+    legend.box.background = element_blank() #transparent legend panel
+  )
+    
+ggsave('graphs/sorry.png', p, width = 8, height = 5, dpi = 80, bg='transparent')
+```
+
+```{r}
+p <- ggplot(dat_all, aes(x=Time, y=Pupil)) + stat_summary(aes(y=Pupil, group=diff, colour=diff), fun.y= mean, geom="line", linewidth=2) + theme_minimal(base_family = "Schoolbell") + xlim(-100, 8000) + scale_colour_manual(values = c("deeppink", "green")) + facet_wrap(vars(Subject)) + labs(title = "Pupil dilation over time per difficulty and subject", colour = "Difficulty") +
+  theme(
+    text=element_text(size=20),
+    panel.background = element_rect(fill='transparent'), #transparent panel bg
+    plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+    panel.grid.minor = element_blank(), #remove minor gridlines
+    legend.background = element_rect(fill='transparent'), #transparent legend bg
+    legend.box.background = element_blank() #transparent legend panel
+  )
+    
+ggsave('graphs/sorrysubs.png', p, width = 10, height = 3, dpi = 80, bg='transparent')
+```
+
+```{r}
+ggplot(dat_all, aes(x=Time, y=Pupil)) + stat_summary(aes(y=Pupil, group=diff, colour=diff), fun.y= mean, geom="line", linewidth=2) + theme_minimal(base_family = "Schoolbell") + xlim(-100, 8000) + scale_colour_manual(values = c("deeppink", "green")) + facet_wrap(vars(Condition, Subject)) + labs(title = "Pupil dilation over time per difficulty", colour = "Difficulty") +
+  theme(
+    text=element_text(size=20),
+    panel.background = element_rect(fill='transparent'), #transparent panel bg
+    plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+    panel.grid.minor = element_blank(), #remove minor gridlines
+    legend.background = element_rect(fill='transparent'), #transparent legend bg
+    legend.box.background = element_blank() #transparent legend panel
+  )
+    
+ggsave('graphs/sorry.png', p, width = 8, height = 5, dpi = 80, bg='transparent')
+```
+
+```{r}
+ggplot(dat_all, aes(x=Time, y=Pupil)) + stat_summary(aes(y=Pupil), fun.y= mean, geom="line") + theme_minimal() 
 ```
 
 
@@ -185,9 +95,14 @@ diff_trials
 
 diff_index <-c(1,4,6,7,9,11,13,14,15,16,22,23,24,27,28,31,32,34,35,38,41,43,48,49,50,52,54,58,59,60,65,66,67,69,70,74,75,76,77,80,81,83,86,88,90,92,94,95,99,100,101,105,106,108,109,112,116,117,118,119)
 
+dat_all$diff <- ifelse(
+  dat_all$diff %in% c("diff"),
+  "difficult",
+  "easy")
+
 dat6$diff <- ifelse(
   dat6$TRIAL_INDEX %in% diff_index,
-  "diff",
+  "difficult",
   "easy")
 head(dat6$diff)
 tail(dat6$diff)
@@ -213,6 +128,18 @@ ppl_plot_avg(data = dat6,
 ```
 
 ```{r}
+
+
+dat_all$Condition <- ifelse(
+  dat_all$Subject %in% c("sub1", "sub2"),
+  ifelse(dat_all$TRIAL_INDEX %in% c(1:60), "No_Feedback", "Feedback"),
+  ifelse(dat_all$TRIAL_INDEX %in% c(1:60), "Feedback", "No_Feedback"))
+
+table(dat_all$Condition, dat_all$Subject)
+```
+
+
+```{r}
 dat_feedback <- dat6 %>% filter(TRIAL_INDEX %in% 1:60)
 dat_nofeedback <- dat6 %>% filter(TRIAL_INDEX %in% 61:120)
 with(dat_feedback,plot(Gaze_X,Gaze_Y,xlim=c(100,1400),ylim=c(0,1200)))
@@ -221,100 +148,9 @@ with(dat_nofeedback,plot(Gaze_X,Gaze_Y,xlim=c(100,1400),ylim=c(0,1200)))
 ```
 
 ```{r}
-path_to_file2 <- "sub_2.asc"
-raw_datsub2 <- read.asc(path_to_file2)
-head(raw_datsub2)
+dat6_s2 <- dat2
+dat6_s3 <- dat3
 
-path_to_file3 <- "sub_3.asc"
-raw_datsub3 <- read.asc(path_to_file3)
-head(raw_datsub3)
-```
-```{r}
-ppl_pre_dat2 <- asc_to_pupilpre(path_to_file2,
-                               label="sub2",
-                               recorded_eye = "Left",
-                               trial_start_msg ="start trial [0-9]+",
-                               id_pattern ="start trial ",
-                               trial_end_msg="end trial")
-
-#MAIS
-
-
-ppl_pre_dat3 <- asc_to_pupilpre(path_to_file3,
-                               label="sub3",
-                               recorded_eye = "Left",
-                               trial_start_msg ="start trial [0-9]+",
-                               id_pattern ="start trial ",
-                               trial_end_msg="end trial")
-
-```
-
-```{r}
-dats2 <- ppl_pre_dat2$pplpreData[ppl_pre_dat2$pplpreData$in_trial,]
-dats3 <- ppl_pre_dat3$pplpreData[ppl_pre_dat3$pplpreData$in_trial,]
-str(dats2)
-str(dats3)
-```
-
-```{r}
-dat2_aligned <- align_msg(dats2,Msg="start trial")
-str(dat2_aligned)
-
-dat3_aligned <- align_msg(dats3,Msg="start trial")
-str(dat3_aligned)
-```
-```{r}
-dat2_time <- create_time_series(dat2_aligned, Adjust = 0)
-dat3_time <- create_time_series(dat3_aligned, Adjust = 0)
-
-
-check_msg_time(dat2_time, Msg = "start trial", ReturnData=T)
-check_msg_time(dat2_time, Msg = "press spacebar", ReturnData = T)
-
-check_msg_time(dat3_time, Msg = "start trial", ReturnData=T)
-check_msg_time(dat3_time, Msg = "press spacebar", ReturnData = T)
-```
-
-```{r}
-dat2_s2 <- ppl_select_recorded_eye(data = dat2_time, Recording = "LorR", WhenLandR = "Left")
-dat2_s3 <- ppl_select_recorded_eye(data = dat3_time, Recording = "LorR", WhenLandR = "Left")
-
-```
-
-```{r}
-dat3_s2 <- recode_off_screen(data = dat2_s2, ScreenSize = c(1280, 1024))
-blink_summary(dat3_s2, Summary = "Event")
-NA_summary(dat3_s2, Summary = "Event", PupilColumn="Pupil")
-dat4_s2 <- clean_blink(dat3_s2, BlinkPadding = c(170, 170), Delta = 5,
-                    MaxValueRun = 5, NAsAroundRun = c(2,2),
-                    LogFile = "BlinkCleanupLog.rds")
-plot_compare_app(dat4_s2)
-```
-```{r}
-dat3_s3 <- recode_off_screen(data = dat2_s3, ScreenSize = c(1280, 1024))
-blink_summary(dat3_s3, Summary = "Event")
-NA_summary(dat3_s3, Summary = "Event", PupilColumn="Pupil")
-dat4_s3 <- clean_blink(dat3_s3, BlinkPadding = c(170, 170), Delta = 5,
-                    MaxValueRun = 5, NAsAroundRun = c(2,2),
-                    LogFile = "BlinkCleanupLog.rds")
-plot_compare_app(dat4_s3)
-#something seems off 
-```
-```{r}
-dat5_s2 <- interpolate_NAs(dat4_s2, Method = "linear", XandY = T, MinData = 2)
-plot_compare_app(dat5_s2)
-```
-
-```{r}
-dat5_s3 <- interpolate_NAs(dat4_s3, Method = "linear", XandY = T, MinData = 2)
-plot_compare_app(dat5_s3)
-```
-```{r}
-dat6_s2 <- baseline(dat5_s2, BaselineWindow = c(-500, 0), BaselineType = "Subtraction")
-dat6_s3 <- baseline(dat5_s3, BaselineWindow = c(-500, 0), BaselineType = "Subtraction")
-```
-
-```{r}
 easy_trials <- dat6_s2 %>%
   filter(str_detect(SAMPLE_MESSAGE, "diff\\s+easy")) %>%
   pull(TRIAL_INDEX)
@@ -398,6 +234,32 @@ dats3_nofeedback <- dat6_s3 %>% filter(TRIAL_INDEX %in% 61:120)
 with(dats3_feedback,plot(Gaze_X,Gaze_Y,xlim=c(100,1400),ylim=c(0,1200)))
 with(dats3_nofeedback,plot(Gaze_X,Gaze_Y,xlim=c(100,1400),ylim=c(0,1200)))
 ```
+
+```{r}
+p <- ggplot(dat_all, aes(x=Gaze_X, y=Gaze_Y, colour=TRIAL_INDEX)) + scale_colour_continuous(palette= c("darkblue","blue", "purple", "deeppink", "white")) + geom_point() + facet_wrap(vars(Condition, Subject)) + expand_limits(x = c(0, 1400), y = c(100,1010)) + theme_minimal(base_family = "Schoolbell") + labs(title = "Gaze position per condition and subject", colour = "Trial") +
+  theme(
+      text=element_text(size=24),
+    panel.background = element_rect(fill='transparent'), #transparent panel bg
+    plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+    panel.grid.minor = element_blank(), #remove minor gridlines
+    legend.background = element_rect(fill='transparent'), #transparent legend bg
+    legend.box.background = element_blank() #transparent legend panel
+  )
+
+ggsave('graphs/sorrygays.png', p, width = 10, height = 6, dpi = 100, bg='transparent')
+```
+
+```{r}
+ggplot(dat_all, aes(x=Gaze_X, y=Gaze_Y, colour=TRIAL_INDEX)) + scale_colour_continuous(palette= c("darkblue","blue", "purple", "deeppink", "white")) + geom_point() + facet_wrap(vars(interaction(Subject, Condition, diff)), ncol=3) + expand_limits(x = c(0, 1400), y = c(100,1010)) + theme_minimal(base_family = "Schoolbell") + labs(title = "Gaze position per condition and subject", colour = "Trial") +
+  theme(
+    panel.background = element_rect(fill='transparent'), #transparent panel bg
+    plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+    panel.grid.minor = element_blank(), #remove minor gridlines
+    legend.background = element_rect(fill='transparent'), #transparent legend bg
+    legend.box.background = element_blank() #transparent legend panel
+  )
+```
+
 
 # All subjects
 ```{r}

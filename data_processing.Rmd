@@ -24,7 +24,7 @@ library(data.table)
 list = c()
 # Read in data for each subject
 for (n in 10:15){
-    subject <- read.csv(paste0("data//subject-", n, ".csv"))
+    subject <- read.csv(paste0("data//behavioural//subject-", n, ".csv"))
     # Save subject information, remove empty rows
     age <- subject$response[1]
     gender <- subject$response[2]
@@ -231,9 +231,60 @@ ggsave('graphs/rt.png', rt, width = 8, height = 5, dpi = 100, bg='transparent')
 ```
 
 ```{r}
-ggplot(test_data, aes(x=diff, y=alpha, fill=condition)) + 
+ggplot(test_data, aes(x=diff, y=retrieval_t, fill=condition)) + 
   geom_bar(position=position_dodge(), stat="summary", fun="mean", linewidth = 0) + theme_minimal(base_family = "DeliciousUni") + scale_fill_manual(values = c("#79d8d4", "#fdbecc")) +
   geom_errorbar(stat = "summary", width=.2, position = position_dodge(.9)) + scale_color_manual(values = c("gray40", "gray40"), guide = 'none') + labs(title = "Retrieval Time during Test Trials per Condition per Block", fill = "Condition") + ylab("Retrieval Time") + xlab("Block") + theme(plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray65"
+    ),
+    panel.grid.major = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray35"
+    ),
+    panel.grid.major.x = element_blank(),
+    axis.ticks.x = element_line(
+      linetype = "solid",
+      linewidth = 0.25,
+      color = "gray35"
+    ),
+    axis.ticks.length.x = unit(4, units = "pt")
+  )
+
+ggsave('graphs/rt.png', rt, width = 8, height = 5, dpi = 100, bg='transparent')
+```
+
+```{r}
+ggplot(test_data, aes(x=block, y=alpha, fill=condition)) + 
+  geom_violin() + theme_minimal(base_family = "DeliciousUni") + scale_fill_manual(values = c("#79d8d4", "#fdbecc")) +
+  scale_color_manual(values = c("gray40", "gray40"), guide = 'none') + labs(title = "Retrieval Time during Test Trials per Condition per Block", fill = "Condition") + ylab("Retrieval Time") + xlab("Block") + theme(plot.title = element_text(hjust = 0.5),
+    panel.grid.minor = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray65"
+    ),
+    panel.grid.major = element_line(
+      linetype = "dashed",
+      linewidth = 0.15,
+      color = "gray35"
+    ),
+    panel.grid.major.x = element_blank(),
+    axis.ticks.x = element_line(
+      linetype = "solid",
+      linewidth = 0.25,
+      color = "gray35"
+    ),
+    axis.ticks.length.x = unit(4, units = "pt")
+  )
+
+ggsave('graphs/rt.png', rt, width = 8, height = 5, dpi = 100, bg='transparent')
+```
+
+```{r}
+ggplot(test_data, aes(x=alpha, y=retrieval_t, colour=condition)) + 
+  geom_point() + theme_minimal(base_family = "DeliciousUni") + scale_colour_manual(values = c("#79d8d4", "#fdbecc")) + labs(title = "Retrieval Time during Test Trials per Condition per Block", fill = "Condition") + ylab("Retrieval Time") + xlab("Block") + theme(plot.title = element_text(hjust = 0.5),
     panel.grid.minor = element_line(
       linetype = "dashed",
       linewidth = 0.15,
